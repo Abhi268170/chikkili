@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget colors (dark) -->
+    <color name="widget_bg">#FF1E1E2A</color>
+    <color name="widget_title">#FFB3B3B3</color>
+    <color name="widget_expense">#FFD50000</color>
+</resources>

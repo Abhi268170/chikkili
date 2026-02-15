@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Shadow/backdrop layer -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#30000000" />
+            <size
+                android:width="200dp"
+                android:height="200dp" />
+        </shape>
+    </item>
+    
+    <!-- Main glassmorphic layer -->
+    <item
+        android:bottom="4dp"
+        android:left="4dp"
+        android:right="4dp"
+        android:top="4dp">
+        <shape android:shape="oval">
+            <!-- Semi-transparent gradient for glass effect -->
+            <gradient
+                android:angle="135"
+                android:endColor="#80FFFFFF"
+                android:centerColor="#60FFFFFF"
+                android:startColor="#90FFFFFF"
+                android:type="linear" />
+            <!-- White border for frosted glass edge -->
+            <stroke
+                android:width="2dp"
+                android:color="#AAFFFFFF" />
+        </shape>
+    </item>
+</layer-list>
