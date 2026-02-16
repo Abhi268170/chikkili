@@ -21,6 +21,9 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 class FinanceWidget : GlanceAppWidget() {
@@ -50,50 +53,30 @@ class FinanceWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(bgColor)
-                .clickable(actionStartActivity<QuickAddActivity>()) // Tap to quick-add
+                .clickable(actionStartActivity<QuickAddActivity>()) // Tap anywhere to quick-add
                 .padding(12.dp),
-            contentAlignment = Alignment.CenterStart
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Today's Expense",
-                        style = TextStyle(
-                            color = titleColor,
-                            fontSize = 12.sp
-                        )
+                Text(
+                    text = "Today's Expense",
+                    style = TextStyle(
+                        color = titleColor,
+                        fontSize = 14.sp // Slightly larger title
                     )
-                    Spacer(GlanceModifier.height(4.dp))
-                    Text(
-                        text = "₹ ${String.format("%.2f", totalExpense)}",
-                        style = TextStyle(
-                            color = amountColor,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                )
+                Spacer(GlanceModifier.height(8.dp))
+                Text(
+                    text = "₹ ${String.format("%.2f", totalExpense)}",
+                    style = TextStyle(
+                        color = amountColor,
+                        fontSize = 26.sp, // Larger expense text
+                        fontWeight = FontWeight.Bold
                     )
-                }
-                
-                // Push the button to the end
-                Spacer(GlanceModifier.defaultWeight())
-
-                // Quick Add Button
-                Box(
-                    modifier = GlanceModifier
-                        .size(40.dp)
-                        .background(ImageProvider(R.drawable.ic_dock_home)) // Placeholder
-                        .clickable(actionStartActivity<QuickAddActivity>()),
-                     contentAlignment = Alignment.Center
-                ) {
-                     Image(
-                         provider = ImageProvider(R.drawable.ic_empty_state),
-                         contentDescription = "Add",
-                         modifier = GlanceModifier.size(24.dp)
-                     )
-                }
+                )
             }
         }
     }
@@ -122,4 +105,25 @@ class FinanceWidget : GlanceAppWidget() {
 
 class FinanceWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = FinanceWidget()
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: android.appwidget.AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        
+        // Fetch initial data when widget is added or updated by system
+        // This ensures the widget doesn't stay at 0 until the next transaction
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+             try {
+                 val repository = (context.applicationContext as HelloApplication).repository
+                 val today = java.time.LocalDate.now().toString()
+                 val total = repository.getDailyExpenseTotalRaw(today) ?: 0.0
+                 FinanceWidget.pushUpdate(context, total)
+             } catch (e: Exception) {
+                 android.util.Log.e("FinanceWidget", "Error fetching initial data", e)
+             }
+        }
+    }
 }
