@@ -279,13 +279,12 @@ class QuickAddActivity : ComponentActivity() {
                     type = type
                 )
             )
-            // Force sync
-            dao.getDailyExpenseTotalRaw(today)
+            // Because we are in the same Dispatchers.IO block, this query is guaranteed 
+            // to see the insert we just made.
+            val newDailyTotal = dao.getDailyExpenseTotalRaw(today) ?: 0.0
             
-            // Update widget immediately
-            withContext(Dispatchers.Main) {
-                FinanceWidget.updateWidgetNow(applicationContext)
-            }
+            // Push the new total directly to the widget
+            FinanceWidget.pushUpdate(applicationContext, newDailyTotal)
             
             kotlinx.coroutines.withContext(Dispatchers.Main) {
                 finish()

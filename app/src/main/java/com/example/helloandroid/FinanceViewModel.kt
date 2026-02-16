@@ -233,10 +233,12 @@ class FinanceViewModel(
         )
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repository.insert(transaction)
-            // Force sync: read back to ensure WAL checkpoint
-             repository.getDailyExpenseTotalRaw(date.toString())
-            withContext(Dispatchers.Main) {
-                FinanceWidget.updateWidgetNow(application)
+            
+            // If the transaction is for today, update the widget
+            val today = LocalDate.now().toString()
+            if (date.toString() == today && type == TransactionType.EXPENSE) {
+                val newTotal = repository.getDailyExpenseTotalRaw(today) ?: 0.0
+                FinanceWidget.pushUpdate(application, newTotal)
             }
         }
     }
@@ -245,11 +247,11 @@ class FinanceViewModel(
     fun deleteTransaction(id: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repository.deleteById(id)
-            // Force sync
-            repository.getDailyExpenseTotalRaw(LocalDate.now().toString())
-            withContext(Dispatchers.Main) {
-                FinanceWidget.updateWidgetNow(application)
-            }
+            
+            // Recalculate and push for today
+            val today = LocalDate.now().toString()
+            val newTotal = repository.getDailyExpenseTotalRaw(today) ?: 0.0
+            FinanceWidget.pushUpdate(application, newTotal)
         }
     }
     // =====================================================
@@ -306,9 +308,10 @@ class FinanceViewModel(
                 val transactionsToImport = CsvHelper.csvToTransactions(csv)
                 if (transactionsToImport.isNotEmpty()) {
                     repository.insertTransactions(transactionsToImport)
-                    withContext(Dispatchers.Main) {
-                        FinanceWidget.updateWidgetNow(application)
-                    }
+                    // Calculate and push for today
+                    val today = LocalDate.now().toString()
+                    val newTotal = repository.getDailyExpenseTotalRaw(today) ?: 0.0
+                    FinanceWidget.pushUpdate(application, newTotal)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

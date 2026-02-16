@@ -2,6 +2,8 @@ package com.example.helloandroid
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.glance.*
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -9,26 +11,29 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.layout.*
+import androidx.glance.state.GlanceStateDefinition
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.flow.first
 import java.time.LocalDate
-import androidx.glance.appwidget.updateAll
 
 class FinanceWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Fetch data
-        val repository = (context.applicationContext as HelloApplication).repository
-        val today = LocalDate.now().toString()
-        val totalExpense = repository.getDailyExpenseTotalRaw(today) ?: 0.0
-        android.util.Log.d("FinanceWidget", "provideGlance: today=$today, totalExpense=$totalExpense")
+    
+    // 1. Tell Glance to use Preferences for state
+    override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
+            // 2. Read directly from the state, NOT the database
+            val prefs = currentState<Preferences>()
+            val totalExpense = prefs[expensePreferenceKey] ?: 0.0
+            
             WidgetContent(totalExpense)
         }
     }
@@ -94,15 +99,22 @@ class FinanceWidget : GlanceAppWidget() {
     }
 
     companion object {
-        suspend fun updateWidgetNow(context: Context) {
-            android.util.Log.d("FinanceWidget", "updateWidgetNow called on ${Thread.currentThread().name}")
+        val expensePreferenceKey = doublePreferencesKey("today_expense")
+
+        // 3. Create a unified Push updater
+        suspend fun pushUpdate(context: Context, newTotal: Double) {
+            val manager = GlanceAppWidgetManager(context)
+            val glanceIds = manager.getGlanceIds(FinanceWidget::class.java)
             
-            try {
-                // IMPORTANT: This must be called from Main thread to be immediate!
-                FinanceWidget().updateAll(context)
-                android.util.Log.d("FinanceWidget", "Widget update completed")
-            } catch (e: Exception) {
-                android.util.Log.e("FinanceWidget", "Error updating widget", e)
+            glanceIds.forEach { glanceId ->
+                // Write the new exact total into the widget's internal state
+                updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
+                    prefs.toMutablePreferences().apply {
+                        this[expensePreferenceKey] = newTotal
+                    }
+                }
+                // Tell the widget to redraw using the new state
+                FinanceWidget().update(context, glanceId)
             }
         }
     }
