@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import androidx.glance.appwidget.updateAll
 
 class FinanceWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -93,16 +94,15 @@ class FinanceWidget : GlanceAppWidget() {
     }
 
     companion object {
-        suspend fun updateAll(context: Context) {
-            android.util.Log.d("FinanceWidget", "updateAll called")
-            // Small delay to ensure DB write is committed and visible to raw query
-            kotlinx.coroutines.delay(500) 
-            val manager = GlanceAppWidgetManager(context)
-            val glanceIds = manager.getGlanceIds(FinanceWidget::class.java)
-            android.util.Log.d("FinanceWidget", "Found ${glanceIds.size} glanceIds to update")
-            glanceIds.forEach { glanceId ->
-                android.util.Log.d("FinanceWidget", "Updating glanceId: $glanceId")
-                FinanceWidget().update(context, glanceId)
+        suspend fun updateWidgetNow(context: Context) {
+            android.util.Log.d("FinanceWidget", "updateWidgetNow called on ${Thread.currentThread().name}")
+            
+            try {
+                // IMPORTANT: This must be called from Main thread to be immediate!
+                FinanceWidget().updateAll(context)
+                android.util.Log.d("FinanceWidget", "Widget update completed")
+            } catch (e: Exception) {
+                android.util.Log.e("FinanceWidget", "Error updating widget", e)
             }
         }
     }

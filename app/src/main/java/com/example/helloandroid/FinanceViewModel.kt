@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
@@ -229,17 +231,25 @@ class FinanceViewModel(
             date = date,
             categoryId = categoryId
         )
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repository.insert(transaction)
-            FinanceWidget.updateAll(application)
+            // Force sync: read back to ensure WAL checkpoint
+             repository.getDailyExpenseTotalRaw(date.toString())
+            withContext(Dispatchers.Main) {
+                FinanceWidget.updateWidgetNow(application)
+            }
         }
     }
 
     /** Delete a transaction → removes from database */
     fun deleteTransaction(id: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repository.deleteById(id)
-            FinanceWidget.updateAll(application)
+            // Force sync
+            repository.getDailyExpenseTotalRaw(LocalDate.now().toString())
+            withContext(Dispatchers.Main) {
+                FinanceWidget.updateWidgetNow(application)
+            }
         }
     }
     // =====================================================
@@ -296,7 +306,9 @@ class FinanceViewModel(
                 val transactionsToImport = CsvHelper.csvToTransactions(csv)
                 if (transactionsToImport.isNotEmpty()) {
                     repository.insertTransactions(transactionsToImport)
-                    FinanceWidget.updateAll(application)
+                    withContext(Dispatchers.Main) {
+                        FinanceWidget.updateWidgetNow(application)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

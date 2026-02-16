@@ -18,7 +18,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.*
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
@@ -266,7 +268,8 @@ class QuickAddActivity : ComponentActivity() {
     private fun saveTransaction(title: String, amount: Double, type: TransactionType) {
         val database = AppDatabase.getDatabase(this)
         val dao = database.transactionDao()
-        
+        val today = java.time.LocalDate.now().toString()
+
         CoroutineScope(Dispatchers.IO).launch {
             dao.insert(
                 Transaction(
@@ -276,9 +279,17 @@ class QuickAddActivity : ComponentActivity() {
                     type = type
                 )
             )
+            // Force sync
+            dao.getDailyExpenseTotalRaw(today)
+            
             // Update widget immediately
-            FinanceWidget.updateAll(applicationContext)
-            finish()
+            withContext(Dispatchers.Main) {
+                FinanceWidget.updateWidgetNow(applicationContext)
+            }
+            
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                finish()
+            }
         }
     }
 }
